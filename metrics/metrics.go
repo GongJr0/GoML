@@ -16,6 +16,7 @@ type Metrics struct {
 
 func Evaluate(yTrue, yPred []float64) Metrics {
 	var R2, MSE, RMSE, MAE, MAPE float64
+
 	SSR := 0.0
 	SST := 0.0
 	AE := 0.0
