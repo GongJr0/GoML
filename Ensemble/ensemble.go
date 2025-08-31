@@ -33,7 +33,7 @@ func NewBagged(estimatorFactory func(x [][]float64, y []float64) Estimator, nEst
 		RandSeed: randSeed,
 		rng:      rand.New(rand.NewSource(*randSeed)),
 	}
-	b.setBags()
+	b.setBags(nEstimators)
 	estimators := make([]Estimator, nEstimators)
 	for i := 0; i < nEstimators; i++ {
 		estimators[i] = estimatorFactory(b.Bags[i].X, b.Bags[i].Y)
@@ -44,13 +44,22 @@ func NewBagged(estimatorFactory func(x [][]float64, y []float64) Estimator, nEst
 }
 
 type Bagged struct {
+	//Ensemble Components
 	Estimators []Estimator
 	Bags       []Sample
-	X          [][]float64
-	Y          []float64
-	RandSeed   *int64
-	rng        *rand.Rand
 	weights    []float64
+
+	// Raw Data
+	X [][]float64
+	Y []float64
+
+	//Metrics
+	FitMetrics metrics.Metrics
+	OOBMetrics metrics.Metrics
+
+	// Random State
+	RandSeed *int64
+	rng      *rand.Rand
 }
 
 func (b *Bagged) bootstrapSample() Sample {
@@ -74,9 +83,9 @@ func (b *Bagged) bootstrapSample() Sample {
 	return Sample{X: feature, Y: label, OOBIndices: oobIndices}
 }
 
-func (b *Bagged) setBags() {
-	bags := make([]Sample, len(b.Estimators))
-	for i := 0; i < len(b.Estimators); i++ {
+func (b *Bagged) setBags(nEstimators int) {
+	bags := make([]Sample, nEstimators)
+	for i := 0; i < nEstimators; i++ {
 		bags[i] = b.bootstrapSample()
 	}
 	b.Bags = bags
@@ -111,12 +120,14 @@ func (b *Bagged) Fit() {
 		estimator.Fit()
 	}
 	oob := b.GetOOB()
+	evalSetOOB := make([]metrics.Metrics, len(b.Estimators))
 	for i, sample := range oob {
 		preds := make([]float64, len(sample.Y))
 		for row, x := range sample.X {
 			preds[row] = b.Estimators[i].Predict(x)
 		}
-		oobEval[i] = 1 / (metrics.Evaluate(sample.Y, preds).RMSE + 1e-8)
+		evalSetOOB[i] = metrics.Evaluate(sample.Y, preds)
+		oobEval[i] = 1 / (evalSetOOB[i].RMSE + 1e-8)
 	}
 	weights := make([]float64, len(oobEval))
 	sumMetric := 0.0
@@ -127,6 +138,25 @@ func (b *Bagged) Fit() {
 		weights[estimator] = metric / sumMetric
 	}
 	b.weights = weights
+
+	metricsOOB := metrics.Metrics{}
+	for i, metric := range evalSetOOB {
+		metricsOOB.R2 += metric.R2 * weights[i]
+		metricsOOB.RMSE += metric.RMSE * weights[i]
+		metricsOOB.MSE += metric.MSE * weights[i]
+		metricsOOB.MAE += metric.MAE * weights[i]
+		metricsOOB.MAPE += metric.MAPE * weights[i]
+	}
+
+	predsFit := make([]float64, len(b.Y))
+	for i := range b.Y {
+		predsFit[i] = b.Predict(b.X[i])
+	}
+	metricsFit := metrics.Evaluate(b.Y, predsFit)
+
+	b.FitMetrics = metricsFit
+	b.OOBMetrics = metricsOOB
+
 }
 
 func (b *Bagged) Predict(x []float64) float64 {

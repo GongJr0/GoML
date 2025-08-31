@@ -1,8 +1,9 @@
 package metrics
 
 import (
-	"gonum.org/v1/gonum/stat"
 	"math"
+
+	"gonum.org/v1/gonum/stat"
 )
 
 type Metrics struct {
@@ -29,6 +30,7 @@ func Evaluate(yTrue, yPred []float64) Metrics {
 		AE += math.Abs(yPred[i] - yTrue[i])
 		APE += math.Abs((yPred[i] - yTrue[i]) / yTrue[i])
 	}
+
 	//R2
 	R2 = 1 - (SSR / SST)
 
