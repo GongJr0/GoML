@@ -28,7 +28,7 @@ type Bagged struct {
 	rng      *rand.Rand
 }
 
-func NewBagged(estimatorFactory func(x [][]float64, y []float64) Estimator, nEstimators int, x [][]float64, y []float64, randSeed *int64) *Bagged {
+func NewBagged(estimatorFactory func(x [][]float64, y []float64) Estimator, nEstimators int, x [][]float64, y []float64, randSeed *int64) Estimator {
 	if randSeed == nil {
 		tNow := time.Now().UnixNano()
 		randSeed = &tNow
@@ -48,6 +48,10 @@ func NewBagged(estimatorFactory func(x [][]float64, y []float64) Estimator, nEst
 	b.Estimators = estimators
 
 	return b
+}
+
+func NewDefaultBagged(estimatorFactory func(x [][]float64, y []float64) Estimator, nEstimators int, x [][]float64, y []float64) Estimator {
+	return NewBagged(estimatorFactory, nEstimators, x, y, nil)
 }
 
 func (b *Bagged) bootstrapSample() Sample {
@@ -153,4 +157,8 @@ func (b *Bagged) Predict(x []float64) float64 {
 		preds[i] = estimator.Predict(x)
 	}
 	return stat.Mean(preds, b.weights)
+}
+
+func (b *Bagged) GetMetrics() metrics.Metrics {
+	return b.FitMetrics
 }

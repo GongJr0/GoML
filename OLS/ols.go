@@ -1,6 +1,7 @@
 package OLS
 
 import (
+	"GoML/Ensemble"
 	"GoML/metrics"
 
 	"fmt"
@@ -28,12 +29,9 @@ type OLS struct {
 	Intercept float64     `json:"intercept,omitempty"`
 
 	Metrics metrics.Metrics
-
-	// Prediction function
-	Predictor func([]float64) float64 `json:"predictor,omitempty"`
 }
 
-func NewOLS(X [][]float64, Y []float64) *OLS {
+func NewOLS(X [][]float64, Y []float64) Ensemble.Estimator {
 	if len(X) == 0 || len(Y) == 0 {
 		panic("X and Y cannot be empty")
 	}
@@ -121,17 +119,17 @@ func (ols *OLS) Fit() {
 	}
 
 	ols.Metrics = metrics.Evaluate(ols.Y, preds)
-
-	// Predictor function
-	ols.Predictor = ols.Predict
-
 }
 
 func (ols *OLS) Predict(x []float64) float64 {
 	if len(x) != len(ols.Coefs) {
 		panic("Input feature length does not match number of coefficients")
 	}
-	coefs := slices.Concat([]float64{ols.Intercept}, ols.Coefs)
+
+	coefs := make([]float64, len(ols.Coefs)+1)
+	coefs[0] = ols.Intercept
+	copy(coefs[1:], ols.Coefs)
+
 	x = slices.Concat([]float64{1.0}, x)
 
 	pred := 0.0
@@ -141,4 +139,36 @@ func (ols *OLS) Predict(x []float64) float64 {
 	return pred
 }
 
-func main() {}
+func PredictorFromFitted(ols *OLS, x []float64) func([]float64) float64 {
+	if ols == nil {
+		panic("OLS model is nil")
+	}
+	if len(ols.Coefs) == 0 {
+		panic("OLS model is not fitted yet")
+	}
+	if len(x) != len(ols.Coefs) {
+		panic("Input feature length does not match number of coefficients")
+	}
+
+	intercept := ols.Intercept
+	coefs := make([]float64, len(ols.Coefs)+1)
+	copy(coefs[1:], ols.Coefs)
+	coefs[0] = intercept
+
+	return func(x []float64) float64 {
+		if len(x) != len(coefs) {
+			panic("Input feature length does not match number of coefficients")
+		}
+		x = slices.Concat([]float64{1.0}, x)
+
+		pred := 0.0
+		for i, coef := range coefs {
+			pred += coef * x[i]
+		}
+		return pred
+	}
+}
+
+func (ols *OLS) GetMetrics() metrics.Metrics {
+	return ols.Metrics
+}

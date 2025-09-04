@@ -7,11 +7,11 @@ import (
 )
 
 type Metrics struct {
-	R2   float64 `json:"R2,omitempty"`
-	MSE  float64 `json:"MSE,omitempty"`
-	RMSE float64 `json:"RMSE,omitempty"`
-	MAE  float64 `json:"MAE,omitempty"`
-	MAPE float64 `json:"MAPE,omitempty"`
+	R2   float64 `json:"R2"`
+	MSE  float64 `json:"MSE"`
+	RMSE float64 `json:"RMSE"`
+	MAE  float64 `json:"MAE"`
+	MAPE float64 `json:"MAPE"`
 }
 
 func Evaluate(yTrue, yPred []float64) Metrics {

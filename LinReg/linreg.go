@@ -3,16 +3,16 @@ package LinReg
 import (
 	"GoML/Ensemble"
 	"GoML/metrics"
+
 	"gonum.org/v1/gonum/mat"
 )
 
 type LinReg struct {
-	X    [][]float64
-	Y    []float64
-	Coef []float64
+	X     [][]float64
+	Y     []float64
+	Coefs []float64
 
-	Metrics   metrics.Metrics
-	Predictor func([]float64) float64
+	Metrics metrics.Metrics
 }
 
 func NewLinReg(X [][]float64, Y []float64) Ensemble.Estimator {
@@ -30,12 +30,12 @@ func NewLinReg(X [][]float64, Y []float64) Ensemble.Estimator {
 		}
 		preAllocY = append(preAllocY, val)
 	}
-	preAllocCoef := make([]float64, len(X[0]))
+	preAllocCoefs := make([]float64, len(X[0]))
 
 	return &LinReg{
-		X:    preAllocX,
-		Y:    preAllocY,
-		Coef: preAllocCoef,
+		X:     preAllocX,
+		Y:     preAllocY,
+		Coefs: preAllocCoefs,
 	}
 
 }
@@ -67,7 +67,7 @@ func (lr *LinReg) Fit() {
 	svd.SolveTo(&W, yMatrix, rank)
 
 	raw := W.RawMatrix().Data
-	copy(lr.Coef, raw)
+	copy(lr.Coefs, raw)
 
 	preds := make([]float64, len(lr.Y))
 	for i := range lr.Y {
@@ -80,7 +80,34 @@ func (lr *LinReg) Fit() {
 func (lr *LinReg) Predict(x []float64) float64 {
 	pred := 0.0
 	for i, val := range x {
-		pred += lr.Coef[i] * val
+		pred += lr.Coefs[i] * val
 	}
 	return pred
+}
+
+func PredictorFromFitted(lr *LinReg, x []float64) func(x []float64) float64 {
+	if lr == nil {
+		panic("OLS model is nil")
+	}
+	if len(lr.Coefs) == 0 {
+		panic("OLS model is not fitted yet")
+	}
+	if len(x) != len(lr.Coefs) {
+		panic("Input feature length does not match number of coefficients")
+	}
+
+	var coefs []float64
+	copy(coefs, lr.Coefs)
+
+	return func(x []float64) float64 {
+		pred := 0.0
+		for i, val := range x {
+			pred += coefs[i] * val
+		}
+		return pred
+	}
+}
+
+func (lr *LinReg) GetMetrics() metrics.Metrics {
+	return lr.Metrics
 }
