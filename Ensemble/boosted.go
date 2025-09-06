@@ -8,24 +8,29 @@ type Boosted struct {
 	X [][]float64
 	Y []float64
 
-	Estimators []Estimator
-	Factory    func(x [][]float64, y []float64) Estimator
+	Estimators   []Estimator
+	Factory      func(x [][]float64, y []float64) Estimator
+	LearningRate float64
 
 	Metrics metrics.Metrics
 }
 
-func NewBoosted(estimatorFactory func(x [][]float64, y []float64) Estimator, nEstimators int, x [][]float64, y []float64) Estimator {
+func NewBoosted(estimatorFactory func(x [][]float64, y []float64) Estimator, nEstimators int, x [][]float64, y []float64, learningRate float64) Estimator {
 	estimators := make([]Estimator, nEstimators)
 	estimators[0] = estimatorFactory(x, y)
 
 	return &Boosted{
-		X:          x,
-		Y:          y,
-		Estimators: estimators,
-		Factory:    estimatorFactory,
+		X:            x,
+		Y:            y,
+		Estimators:   estimators,
+		Factory:      estimatorFactory,
+		LearningRate: learningRate,
 	}
 }
 
+func NewDefaultBoosted(estimatorFactory func(x [][]float64, y []float64) Estimator, nEstimators int, x [][]float64, y []float64) Estimator {
+	return NewBoosted(estimatorFactory, nEstimators, x, y, 0.1).(*Boosted)
+}
 func (b *Boosted) Fit() {
 	nEstimators := len(b.Estimators)
 
@@ -58,7 +63,7 @@ func (b *Boosted) Fit() {
 func (b *Boosted) Predict(x []float64) float64 {
 	pred := 0.0
 	for _, est := range b.Estimators {
-		pred += est.Predict(x)
+		pred += est.Predict(x) * b.LearningRate
 	}
 	return pred
 }

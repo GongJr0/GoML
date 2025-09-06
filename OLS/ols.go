@@ -3,7 +3,6 @@ package OLS
 import (
 	"GoML/Ensemble"
 	"GoML/metrics"
-
 	"fmt"
 	"math"
 	"slices"

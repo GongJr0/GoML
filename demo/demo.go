@@ -19,7 +19,7 @@ var Models = map[string]func(x [][]float64, y []float64) Ensemble.Estimator{
 
 var EnsembleType = map[string]func(estimatorFactory func(x [][]float64, y []float64) Ensemble.Estimator, nEstimators int, x [][]float64, y []float64) Ensemble.Estimator{
 	"bagged":  Ensemble.NewDefaultBagged,
-	"boosted": Ensemble.NewBoosted,
+	"boosted": Ensemble.NewDefaultBoosted,
 }
 
 func Run(dummyX [][]float64, dummyY []float64, modelName string, isEnsemble bool, ensembleMethod string, nEstimators int) {

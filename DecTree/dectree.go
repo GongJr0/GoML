@@ -3,8 +3,10 @@ package DecTree
 import (
 	"GoML/Ensemble"
 	"GoML/metrics"
+	"fmt"
 	"math/rand"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -17,15 +19,15 @@ type Node struct {
 }
 
 type DecTree struct {
-	X               [][]float64
-	Y               []float64
+	X               [][]float64 `json:"x"`
+	Y               []float64   `json:"y"`
 	Metrics         metrics.Metrics
 	root            *Node
-	MaxDepth        int
-	MinSamplesSplit int
-	MinSamplesLeaf  int
-	MaxFeatures     *int
-	RandomSeed      *int64
+	MaxDepth        int    `json:"max_depth"`
+	MinSamplesSplit int    `json:"min_samples_split"`
+	MinSamplesLeaf  int    `json:"min_samples_leaf"`
+	MaxFeatures     *int   `json:"max_features"`
+	RandomSeed      *int64 `json:"random_seed"`
 	rng             *rand.Rand
 }
 
@@ -222,4 +224,41 @@ func (dt *DecTree) Predict(x []float64) float64 {
 
 func (dt *DecTree) GetMetrics() metrics.Metrics {
 	return dt.Metrics
+}
+
+func (dt *DecTree) GetTreeString() string {
+	var buildString func(node *Node, depth int) string
+	buildString = func(node *Node, depth int) string {
+		if node.isLeaf {
+			return fmt.Sprintf("%sLeaf: %.4f\n", strings.Repeat("  ", depth), node.value)
+		}
+		leftStr := buildString(node.left, depth+1)
+		rightStr := buildString(node.right, depth+1)
+		return fmt.Sprintf("%s[Feature %d <= %.4f]\n%s%s", strings.Repeat("  ", depth), node.featureIndex, node.threshold, leftStr, rightStr)
+	}
+	return buildString(dt.root, 0)
+}
+
+func (dt *DecTree) GetFeatureImportance() map[int]float64 {
+	importance := make(map[int]float64)
+	var traverse func(node *Node)
+	traverse = func(node *Node) {
+		if node == nil || node.isLeaf {
+			return
+		}
+		importance[node.featureIndex] += 1.0
+		traverse(node.left)
+		traverse(node.right)
+	}
+	traverse(dt.root)
+
+	// Normalize importance
+	total := 0.0
+	for _, v := range importance {
+		total += v
+	}
+	for k := range importance {
+		importance[k] /= total
+	}
+	return importance
 }

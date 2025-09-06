@@ -2,6 +2,7 @@ package main
 
 import (
 	"GoML/demo"
+	"GoML/httpServer"
 	"GoML/parser"
 	"flag"
 	"fmt"
@@ -120,7 +121,7 @@ func main() {
 		fmt.Println("\nUsage with Args:")
 		fmt.Println("go run main.go <string file_path> [<bool hasHeaders>] <int target_index>")
 	}
-
+	var demoFlag = flag.Bool("serve", false, "<bool> Serve HTTP demo over localhost. All other flags will be ignored if true. (default false)")
 	var filePathFlag = flag.String("data-csv", "", "<string> Path to CSV data file")
 	var hasHeadersFlag = flag.Bool("h", false, "<bool> Whether the CSV file has headers")
 	var targetIndexFlag = flag.Int("target-index", -1, "<int> Index of the target column (0-based)")
@@ -131,8 +132,17 @@ func main() {
 	var err error
 	flag.Parse()
 
+	if *demoFlag {
+		fmt.Println("Starting HTTP server on http://localhost:8080 ...")
+		err := httpServer.StartServer("8080")
+		if err != nil {
+			panic(err)
+		}
+	}
+
 	args := flag.Args()
-	if l := len(args); l == 2 {
+	switch len(args) {
+	case 2:
 		filePath = args[0]
 		if strings.TrimSpace(filePath) == "" {
 			panicUsage(flag.Usage)
@@ -144,7 +154,7 @@ func main() {
 		}
 
 		hasHeaders = false
-	} else if l == 3 {
+	case 3:
 		filePath = args[0]
 		if strings.TrimSpace(filePath) == "" {
 			panicUsage(flag.Usage)
@@ -159,7 +169,8 @@ func main() {
 		if err != nil {
 			panicUsage(flag.Usage)
 		}
-	} else {
+
+	default:
 		filePath = *filePathFlag
 		if strings.TrimSpace(filePath) == "" {
 			panicUsage(flag.Usage)
