@@ -4,6 +4,7 @@ import (
 	"GoML/Ensemble"
 	"GoML/metrics"
 	"fmt"
+	"math"
 	"math/rand"
 	"slices"
 	"strings"
@@ -95,11 +96,11 @@ func (dt *DecTree) varianceReduction(y []float64, leftIdx, rightIdx []int) float
 
 func (dt *DecTree) bestSplit(indices []int) (bestFeature int, bestThreshold float64, bestScore float64) {
 	bestFeature = -1
-	bestScore = -1.0
+	bestScore = math.Inf(-1)
 
 	nFeatures := len(dt.X[0])
 	m := nFeatures
-	if dt.MaxFeatures != nil && *dt.MaxFeatures < nFeatures {
+	if dt.MaxFeatures != nil && *dt.MaxFeatures <= nFeatures && *dt.MaxFeatures > 0 {
 		m = *dt.MaxFeatures
 	}
 

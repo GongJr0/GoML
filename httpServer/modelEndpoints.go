@@ -7,8 +7,33 @@ import (
 	"GoML/OLS"
 	"GoML/metrics"
 	"encoding/json"
+	"errors"
 	"net/http"
 )
+
+func ensembleFactoryConstructor(baseModel string, baseEstimatorParams map[string]interface{}) (func(x [][]float64, y []float64) Ensemble.Estimator, error) {
+	var baseEstimatorFactory func(x [][]float64, y []float64) Ensemble.Estimator
+	switch baseModel {
+	case "linreg":
+		baseEstimatorFactory = LinReg.NewLinReg
+	case "ols":
+		baseEstimatorFactory = OLS.NewOLS
+	case "dectree":
+		baseEstimatorFactory = func(x [][]float64, y []float64) Ensemble.Estimator {
+			randSeed := int64(baseEstimatorParams["random_seed"].(float64))
+			maxFeatures := int(baseEstimatorParams["max_features"].(float64))
+			return DecTree.NewDecTree(x, y,
+				int(baseEstimatorParams["max_depth"].(float64)),
+				int(baseEstimatorParams["min_samples_split"].(float64)),
+				int(baseEstimatorParams["min_samples_leaf"].(float64)),
+				&randSeed,
+				&maxFeatures)
+		}
+	default:
+		return nil, errors.New("unsupported base estimator")
+	}
+	return baseEstimatorFactory, nil
+}
 
 type AbstractPostBody struct {
 	X [][]float64 `json:"X"`
@@ -24,30 +49,47 @@ type DecTreePostBody struct {
 	RandomSeed      int64 `json:"random_seed"`
 }
 
+type EnsemblePostBody struct {
+	AbstractPostBody
+	BaseEstimator       string                 `json:"base_estimator"`
+	BaseEstimatorParams map[string]interface{} `json:"base_estimator_params"`
+	NEstimators         int                    `json:"n_estimators"`
+	RandomSeed          int64                  `json:"random_seed,omitempty"`   // for bagged
+	LearningRate        float64                `json:"learning_rate,omitempty"` // for boosted
+}
+
 // Documentation as JSON response for each endpoint
+
+var metricsDescription = map[string]string{
+	"r2":   "R-squared, the coefficient of determination.",
+	"mse":  "Mean Squared Error.",
+	"rmse": "Root Mean Squared Error.",
+	"mae":  "Mean Absolute Error.",
+	"mape": "Mean Absolute Percentage Error.",
+}
+
+var defaultBody = map[string]interface{}{
+	"X": "[[feature1, feature2, ...], [feature1, feature2, ...], ...]",
+	"Y": "[target]",
+}
+
+var ensembleMethods = []string{"bagged", "boosted"}
+
+var models = []string{"linreg", "ols", "dectree"}
 
 var linRegDocs = map[string]interface{}{
 	"description":      "Basic linear regression with no configurable arguments.",
 	"params":           []string{},
 	"ensemble_support": true,
-	"ensemble_methods": []string{"bagged", "boosted"},
-	"request_format": map[string]string{
+	"ensemble_methods": ensembleMethods,
+	"request_format": map[string]interface{}{
 		"type": "POST",
-		"body": `{
-			"X": [[feature1, feature2, ...], [feature1, feature2, ...], ...],
-			"Y": [target]
-		}`,
-		"response": `{
-			"coefficients": [coef1, coef2, ...],
-			"intercept": intercept,
-			"fit_metrics": {
-				"r2": value,
-				"mse": value,
-				"rmse": value,
-				"mae": value,
-				"mape": value
-			}
-		}`,
+		"body": defaultBody,
+		"response": map[string]interface{}{
+			"coefficients": "[coef1, coef2, ...]",
+			"intercept":    "intercept",
+			"fit_metrics":  metricsDescription,
+		},
 	},
 }
 
@@ -55,24 +97,15 @@ var olsDocs = map[string]interface{}{
 	"description":      "Ordinary Least Squares regression with no configurable arguments.",
 	"params":           []string{},
 	"ensemble_support": true,
-	"ensemble_methods": []string{"bagged", "boosted"},
-	"request_format": map[string]string{
+	"ensemble_methods": ensembleMethods,
+	"request_format": map[string]interface{}{
 		"type": "POST",
-		"body": `{
-			"X": [[feature1, feature2, ...], [feature1, feature2, ...], ...],
-			"Y": [target]
-		}`,
-		"response": `{
-			"coefficients": [coef1, coef2, ...],
-			"intercept": intercept,
-			"fit_metrics": {
-				"r2": value,
-				"mse": value,
-				"rmse": value,
-				"mae": value,
-				"mape": value
-			}
-		}`,
+		"body": defaultBody,
+	},
+	"response": map[string]interface{}{
+		"coefficients": "[coef1, coef2, ...]",
+		"intercept":    "intercept",
+		"fit_metrics":  metricsDescription,
 	},
 }
 
@@ -86,29 +119,23 @@ var decTreeDocs = map[string]interface{}{
 		"random_seed":       {"int", "Random seed for reproducibility. Default is current unix time in nanoseconds."},
 	},
 	"ensemble_support": true,
-	"ensemble_methods": []string{"bagged", "boosted"},
-	"request_format": map[string]string{
+	"ensemble_methods": ensembleMethods,
+	"request_format": map[string]interface{}{
 		"type": "POST",
-		"body": `{
-			"X": [[feature1, feature2, ...], [feature1, feature2, ...], ...],
-			"Y": [target],
-			"max_depth": int,
-			"min_samples_split": int,
-			"min_samples_leaf": int,
-			"max_features": int,
-			"random_seed": int
-		}`,
-		"response": `{
-			"tree_structure": {...},
-			"feature_importance": [imp1, imp2, ...],
-			"fit_metrics": {
-				"r2": value,
-				"mse": value,
-				"rmse": value,
-				"mae": value,
-				"mape": value
-			}
-		}`,
+		"body": map[string]string{
+			"X":                 "[[feature1, feature2, ...], [feature1, feature2, ...], ...]",
+			"Y":                 "[target]",
+			"max_depth":         "int",
+			"min_samples_split": "int",
+			"min_samples_leaf":  "int",
+			"max_features":      "int",
+			"random_seed":       "int",
+		},
+		"response": map[string]interface{}{
+			"tree_structure":     "{...}",
+			"feature_importance": "[imp1, imp2, ...]",
+			"fit_metrics":        metricsDescription,
+		},
 	},
 }
 
@@ -118,27 +145,21 @@ var baggedDocs = map[string]interface{}{
 		"n_estimators": {"int", "The number of base estimators in the ensemble. Default is 10."},
 		"random_seed":  {"int", "Random seed for reproducibility. Default is current unix time in nanoseconds."},
 	},
-	"supported_base_estimators": []string{"linreg", "ols", "dectree"},
-	"request_format": map[string]string{
+	"supported_base_estimators": models,
+	"request_format": map[string]interface{}{
 		"type": "POST",
-		"body": `{
-			"X": [[feature1, feature2, ...], [feature1, feature2, ...], ...],
-			"Y": [target],
-			"base_estimator": "linreg" | "ols" | "dectree",
-			"base_estimator_params": {...}, // {} if no params
-			"n_estimators": int,
-			"random_seed": int,
-		}`,
-		"response": `{
-			"base_estimator_fit_metrics": [{...}, {...}, ...],
-			"fit_metrics": {
-				"r2": value,
-				"mse": value,
-				"rmse": value,
-				"mae": value,
-				"mape": value
-			}
-		}`,
+		"body": map[string]string{
+			"X":                     "[[feature1, feature2, ...], [feature1, feature2, ...], ...]",
+			"Y":                     "[target]",
+			"base_estimator":        "'linreg' | 'ols' | 'dectree'",
+			"base_estimator_params": "{...} // {} if no params",
+			"n_estimators":          "int",
+			"random_seed":           "int",
+		},
+		"response": map[string]interface{}{
+			"base_estimator_fit_metrics": "[{...}, {...}, ...]",
+			"fit_metrics":                metricsDescription,
+		},
 	},
 }
 
@@ -148,27 +169,21 @@ var boostedDocs = map[string]interface{}{
 		"n_estimators":  {"int", "The number of base estimators in the ensemble. Default is 10."},
 		"learning_rate": {"float", "Learning rate shrinks the contribution of each base estimator. Default is 0.1."},
 	},
-	"supported_base_estimators": []string{"linreg", "ols", "dectree"},
-	"request_format": map[string]string{
+	"supported_base_estimators": models,
+	"request_format": map[string]interface{}{
 		"type": "POST",
-		"body": `{
-			"X": [[feature1, feature2, ...], [feature1, feature2, ...], ...],
-			"Y": [target],
-			"base_estimator": "linreg" | "ols" | "dectree",
-			"base_estimator_params": {...}, // {} if no params
-			"n_estimators": int,
-			"learning_rate": float
-		}`,
-		"response": `{
-			"base_estimator_fit_response": [{...}, {...}, ...],
-			"fit_metrics": {
-				"r2": value,
-				"mse": value,
-				"rmse": value,
-				"mae": value,
-				"mape": value
-			}	
-		}`,
+		"body": map[string]string{
+			"X":                     "[[feature1, feature2, ...], [feature1, feature2, ...], ...]",
+			"Y":                     "[target]",
+			"base_estimator":        "'linreg' | 'ols' | 'dectree'",
+			"base_estimator_params": "{...} // {} if no params",
+			"n_estimators":          "int",
+			"learning_rate":         "float",
+		},
+		"response": map[string]interface{}{
+			"base_estimator_fit_response": "[{...}, {...}, ...]",
+			"fit_metrics":                 metricsDescription,
+		},
 	},
 }
 
@@ -324,37 +339,21 @@ func DecTreePostHandler(w http.ResponseWriter, r *http.Request) (err error) {
 }
 
 func BaggedPostHandler(w http.ResponseWriter, r *http.Request) (err error) {
-	modelParams := make(map[string]interface{})
+	var modelParams EnsemblePostBody
 	err = json.NewDecoder(r.Body).Decode(&modelParams)
 	if err != nil {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 		return
 	}
-	X := modelParams["X"].([][]float64)
-	Y := modelParams["Y"].([]float64)
-	baseEstimatorName := modelParams["base_estimator"].(string)
-	baseEstimatorParams := modelParams["base_estimator_params"].(map[string]interface{})
-	nEstimators := modelParams["n_estimators"].(int)
-	randomSeed := modelParams["random_seed"].(int64)
+	X := modelParams.X
+	Y := modelParams.Y
+	baseEstimatorName := modelParams.BaseEstimator
+	baseEstimatorParams := modelParams.BaseEstimatorParams
+	nEstimators := modelParams.NEstimators
+	randomSeed := modelParams.RandomSeed
 
-	var baseEstimatorFactory func(x [][]float64, y []float64) Ensemble.Estimator
-	switch baseEstimatorName {
-	case "linreg":
-		baseEstimatorFactory = LinReg.NewLinReg
-	case "ols":
-		baseEstimatorFactory = OLS.NewOLS
-	case "dectree":
-		baseEstimatorFactory = func(x [][]float64, y []float64) Ensemble.Estimator {
-			randSeed := baseEstimatorParams["random_seed"].(int64)
-			maxFeatures := baseEstimatorParams["max_features"].(int)
-			return DecTree.NewDecTree(x, y,
-				baseEstimatorParams["max_depth"].(int),
-				baseEstimatorParams["min_samples_split"].(int),
-				baseEstimatorParams["min_samples_leaf"].(int),
-				&randSeed,
-				&maxFeatures)
-		}
-	default:
+	baseEstimatorFactory, err := ensembleFactoryConstructor(baseEstimatorName, baseEstimatorParams)
+	if err != nil {
 		http.Error(w, "Unsupported base estimator", http.StatusBadRequest)
 		return
 	}
@@ -376,37 +375,21 @@ func BaggedPostHandler(w http.ResponseWriter, r *http.Request) (err error) {
 }
 
 func BoostedPostHandler(w http.ResponseWriter, r *http.Request) (err error) {
-	modelParams := make(map[string]interface{})
+	var modelParams EnsemblePostBody
 	err = json.NewDecoder(r.Body).Decode(&modelParams)
 	if err != nil {
 		http.Error(w, "Invalid JSON body", http.StatusBadRequest)
 		return
 	}
-	X := modelParams["X"].([][]float64)
-	Y := modelParams["Y"].([]float64)
-	baseEstimatorName := modelParams["base_estimator"].(string)
-	baseEstimatorParams := modelParams["base_estimator_params"].(map[string]interface{})
-	nEstimators := modelParams["n_estimators"].(int)
-	learningRate := modelParams["learning_rate"].(float64)
+	X := modelParams.X
+	Y := modelParams.Y
+	baseEstimatorName := modelParams.BaseEstimator
+	baseEstimatorParams := modelParams.BaseEstimatorParams
+	nEstimators := modelParams.NEstimators
+	learningRate := modelParams.LearningRate
 
-	var baseEstimatorFactory func(x [][]float64, y []float64) Ensemble.Estimator
-	switch baseEstimatorName {
-	case "linreg":
-		baseEstimatorFactory = LinReg.NewLinReg
-	case "ols":
-		baseEstimatorFactory = OLS.NewOLS
-	case "dectree":
-		baseEstimatorFactory = func(x [][]float64, y []float64) Ensemble.Estimator {
-			randSeed := baseEstimatorParams["random_seed"].(int64)
-			maxFeatures := baseEstimatorParams["max_features"].(int)
-			return DecTree.NewDecTree(x, y,
-				baseEstimatorParams["max_depth"].(int),
-				baseEstimatorParams["min_samples_split"].(int),
-				baseEstimatorParams["min_samples_leaf"].(int),
-				&randSeed,
-				&maxFeatures)
-		}
-	default:
+	baseEstimatorFactory, err := ensembleFactoryConstructor(baseEstimatorName, baseEstimatorParams)
+	if err != nil {
 		http.Error(w, "Unsupported base estimator", http.StatusBadRequest)
 		return
 	}

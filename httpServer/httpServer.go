@@ -33,6 +33,10 @@ var BaggedHandler = AbstractHandler(BaggedGetHandler, BaggedPostHandler)
 var BoostedHandler = AbstractHandler(BoostedGetHandler, BoostedPostHandler)
 
 func StartServer(port string) error {
+	//Status
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/models", http.StatusSeeOther)
+	})
 	// Top level routes
 	http.HandleFunc("/models", ModelsHandler)
 	http.HandleFunc("/estimators", EstimatorsHandler)
