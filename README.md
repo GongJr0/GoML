@@ -91,7 +91,7 @@ Ensemble estimators are created through combining multiple instances of identica
 ### Bagging
 Bagging is an ensemble method that takes advantage of a probabilistic law creating the basis of modern statistics. 
 [Law of Large Numbers (LLN)](https://en.wikipedia.org/wiki/Law_of_large_numbers) is a law stating that increasing the number of samples in a set of observations will cause the sample mean to converge to the expected value.
-More formally, we can denote an over-simplified $LLN: \\ \\ \lim_{n\to\infty} \overline{X} = \mu$ where $\overline{X}$ is the sample mean and $\mu$ is the population mean.
+More formally, we can denote an over-simplified $LLN: \\ \\ \underset{n\to\infty}{\lim} \overline{X} = \mu$ where $\overline{X}$ is the sample mean and $\mu$ is the population mean.
 
 LLN presents itself in the form of error compensation. Bagging uses multiple, independent models fitted to randomly selected sub-samples of the input data. 
 Each model generates a prediction and a weighted average of the individual predictions is calculated, either by equal weights (common default) or by using an error metric ($RMSE$ in GoML's case) to determine which models deserve more weightage.
