@@ -33,10 +33,6 @@ var BaggedHandler = AbstractHandler(BaggedGetHandler, BaggedPostHandler)
 var BoostedHandler = AbstractHandler(BoostedGetHandler, BoostedPostHandler)
 
 func StartServer(port string) error {
-	//Status
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/models", http.StatusSeeOther)
-	})
 	// Top level routes
 	http.HandleFunc("/models", ModelsHandler)
 	http.HandleFunc("/estimators", EstimatorsHandler)
@@ -50,6 +46,11 @@ func StartServer(port string) error {
 	// Ensemble specific routes
 	http.HandleFunc("/ensembles/bagged", BaggedHandler)
 	http.HandleFunc("/ensembles/boosted", BoostedHandler)
+
+	//Status
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		http.ServeFile(w, r, "httpServer/html/landing.html")
+	})
 
 	return http.ListenAndServe(":"+port, nil)
 }

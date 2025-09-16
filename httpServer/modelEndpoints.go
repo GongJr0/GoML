@@ -396,6 +396,9 @@ func BoostedPostHandler(w http.ResponseWriter, r *http.Request) (err error) {
 	ensemble := Ensemble.NewBoosted(baseEstimatorFactory, nEstimators, X, Y, learningRate).(*Ensemble.Boosted)
 	ensemble.Fit()
 
+	// Get nEstimators in case early stopping reduced the number
+	nEstimators = len(ensemble.Estimators)
+
 	estimatorFits := make([]metrics.Metrics, nEstimators)
 	for i, est := range ensemble.Estimators {
 		estimatorFits[i] = est.GetMetrics()

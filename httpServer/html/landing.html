@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>GoML Landing Page</title>
+    <style>
+        :root {
+            --bg: #0b1220;
+            --card: #121a2b;
+            --muted: #7f8aa3;
+            --txt: #e8eefc;
+            --accent: #5aa4ff;
+            --accent-2: #8ee3c6;
+            --border: #1f2a44;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; padding: 2rem; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+            background: radial-gradient(1200px 800px at 10% -10%, #203050 0%, rgba(32,48,80,0) 60%), var(--bg); color: var(--txt);
+        }
+        h1 { margin: 0 0 1rem; font-size: 2rem; letter-spacing: .3px; }
+        .sub { color: var(--muted); margin-bottom: 2rem; }
+        .grid {
+            display: grid; gap: 1rem;
+            grid-template-columns: repeat(12, minmax(0, 1fr));
+        }
+        .card {
+            grid-column: span 12;
+            background: linear-gradient(180deg, rgba(255,255,255,.02), rgba(255,255,255,.01));
+            border: 1px solid var(--border); border-radius: 14px;
+            padding: 1rem 1.25rem 1.25rem; box-shadow: 0 10px 24px rgba(0,0,0,.25);
+        }
+        @media (min-width: 960px) {
+            .span-4 { grid-column: span 4; }
+            .span-8 { grid-column: span 8; }
+            .span-6 { grid-column: span 6; }
+        }
+        .card h2 { margin: 0 0 .75rem; font-size: 1.1rem; color: #fff; }
+        .row { display: flex; gap: .75rem; align-items: center; flex-wrap: wrap; }
+        label { font-size: .95rem; color: var(--txt); }
+        .radio label { display: inline-flex; align-items: center; gap: .45rem; padding: .35rem .6rem; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+        .radio input { accent-color: var(--accent); }
+        .field {
+            display: grid; gap: .35rem; margin: .6rem 0;
+        }
+        .field small { color: var(--muted); }
+        input[type="number"], input[type="text"] {
+            background: #0f1626; color: var(--txt); border: 1px solid var(--border); border-radius: 10px; padding: .55rem .7rem; width: 280px;
+        }
+        input[type="file"] {
+            color: var(--muted);
+        }
+        .inline {
+            display: inline-flex; align-items: center; gap: .5rem;
+        }
+        .toggle {
+            display: inline-flex; align-items: center; gap: .5rem; margin-top: .4rem;
+        }
+        .hint { color: var(--muted); font-size: .9rem; }
+        button {
+            background: linear-gradient(180deg, var(--accent) 0%, #3a78ff 100%);
+            border: 0; color: white; padding: .7rem 1.1rem; border-radius: 12px; cursor: pointer; font-weight: 600;
+            box-shadow: 0 8px 20px rgba(90,164,255,.35); transition: transform .06s ease;
+        }
+        button:active { transform: translateY(1px); }
+        .btn-secondary {
+            background: transparent; border: 1px solid var(--border); color: var(--txt);
+        }
+        .muted { opacity: .6; }
+        pre {
+            margin: 0; padding: .8rem 1rem; background: #0a0f1b; color: #d9e6ff; border: 1px solid var(--border); border-radius: 12px; overflow: auto; max-height: 340px;
+            font-size: .9rem;
+        }
+        .badge {
+            display: inline-flex; align-items: center; gap: .35rem; font-size: .85rem;
+            padding: .2rem .5rem; border: 1px solid var(--border); border-radius: 999px; color: var(--muted);
+        }
+    </style>
+</head>
+<body>
+<h1>GoML — Run Model Test</h1>
+<div class="sub">Select a model, set params (if any), upload data, and preview the payload you’ll send to your Go backend.</div>
+
+<div class="grid">
+    <!-- MODEL PICKER -->
+    <section class="card span-4">
+        <h2>Model</h2>
+        <div class="row radio" id="model-selection">
+            <label><input type="radio" name="model" value="dectree"> Decision Tree</label>
+            <label><input type="radio" name="model" value="ols"> OLS</label>
+            <label><input type="radio" name="model" value="linreg"> Linear Regression</label>
+        </div>
+        <div class="hint">Params panel on the right updates automatically.</div>
+    </section>
+
+    <!-- DYNAMIC PARAMS -->
+    <section class="card span-8">
+        <div class="row" style="justify-content: space-between; align-items: baseline;">
+            <h2 id="params-title">Parameters</h2>
+            <span class="badge" id="model-badge">Pick a model</span>
+        </div>
+        <div id="params-container">
+            <div class="hint">No model selected.</div>
+        </div>
+    </section>
+
+    <!-- ENSEMBLE -->
+    <section class="card span-4">
+        <h2>Ensemble Method</h2>
+        <div class="row radio">
+            <label><input type="radio" name="ensemble" value="bagging"> Bagging</label>
+            <label><input type="radio" name="ensemble" value="boosting"> Boosting</label>
+            <label><input type="radio" name="ensemble" value="none" checked> None</label>
+        </div>
+        <div id="ensemble-fields">
+            <div class="field">
+                <label for="n_estimators">Number of Estimators</label>
+                <input type="number" id="n_estimators" min="1" value="10" />
+            </div>
+            <div class="field">
+                <label for="learning_rate">Learning Rate (Boosting)</label>
+                <input type="number" id="learning_rate" step="0.01" min="0.01" value="0.1" />
+            </div>
+            <div class="hint">Disabled if “None” is selected.</div>
+        </div>
+    </section>
+
+    <!-- DATA -->
+    <section class="card span-8">
+        <h2>Dataset</h2>
+        <div class="field">
+            <label for="csv-file">Upload CSV</label>
+            <input type="file" id="csv-file" accept=".csv">
+            <small class="hint">Your Go backend will parse server-side.</small>
+        </div>
+        <div class="field inline">
+            <label for="target-column">Target Column Index</label>
+            <input type="number" id="target-column" min="0" placeholder="e.g., 0" required>
+        </div>
+        <div class="row" style="margin-top: .6rem;">
+            <button id="run-test">Run Test</button>
+            <button class="btn-secondary" id="reset">Reset</button>
+        </div>
+    </section>
+
+    <!-- PREVIEW -->
+    <section class="card span-12">
+        <h2>Request Preview</h2>
+        <pre id="json-preview">{}</pre>
+    </section>
+
+    <section class="card span-12">
+        <h2>Response Preview</h2>
+        <pre id="response-preview">{}</pre>
+    </section>
+
+
+</div>
+
+<script>
+    // ---- Schema describing user-exposed params per model (matches struct JSON tags) ----
+    // Decision Tree (has user params including optional pointer fields)
+    // OLS, LinReg (no user-defined params)
+    const MODEL_SCHEMAS = {
+        dectree: {
+            label: "Decision Tree",
+            params: [
+                { key: "max_depth", label: "Max Depth", type: "int", min: 1, default: 5 },
+                { key: "min_samples_split", label: "Min Samples Split", type: "int", min: 2, default: 2 },
+                { key: "min_samples_leaf", label: "Min Samples Leaf", type: "int", min: 1, default: 1 },
+                // Optional pointer int: expose toggle; only include if enabled
+                { key: "max_features", label: "Max Features (optional)", type: "int", min: 1, optional: true },
+                // Optional pointer int64: number field, integer step
+                { key: "random_seed", label: "Random Seed (optional, int64)", type: "int", min: 0, optional: true }
+            ]
+        },
+        ols: {
+            label: "OLS",
+            params: [] // No user-defined params
+        },
+        linreg: {
+            label: "Linear Regression",
+            params: [] // No user-defined params
+        }
+    };
+
+    const modelSelection = document.getElementById('model-selection');
+    const paramsContainer = document.getElementById('params-container');
+    const paramsTitle = document.getElementById('params-title');
+    const modelBadge = document.getElementById('model-badge');
+    const jsonPreview = document.getElementById('json-preview');
+
+    const ensembleRadios = document.querySelectorAll('input[name="ensemble"]');
+    const nEstimators = document.getElementById('n_estimators');
+    const learningRate = document.getElementById('learning_rate');
+
+    const targetColumn = document.getElementById('target-column');
+    const runBtn = document.getElementById('run-test');
+    const resetBtn = document.getElementById('reset');
+    const csvInput = document.getElementById('csv-file');
+
+    const responsePreview = document.getElementById('response-preview');
+
+    let currentModel = null;
+
+    function requireInt(val, name) {
+        const n = Number(val);
+        if (!Number.isFinite(n)) {
+            throw new Error(`${name} must be an integer, got "${val}"`);
+        }
+        return Math.trunc(n);
+    }
+
+    function maybeInt(val) {
+        if (val === "" || val === null || val === undefined) return null;
+        const n = Number(val);
+        return Number.isFinite(n) ? Math.trunc(n) : null;
+    }
+
+    function requireFloat(val, name) {
+        const n = Number(val);
+        if (!Number.isFinite(n)) {
+            throw new Error(`${name} must be a float, got "${val}"`);
+        }
+        return n;
+    }
+
+    function maybeFloat(val) {
+        if (val === "" || val === null || val === undefined) return null;
+        const n = Number(val);
+        return Number.isFinite(n) ? n : null;
+    }
+
+    async function csvToXY(file, targetIndex, sep = ",", hasHeader = true) {
+        const text = await file.text();
+        const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+
+        if (lines.length === 0) throw new Error("CSV is empty");
+
+        const splitRow = line => line.split(sep).map(s => s.trim().replace(/^"|"$/g, ""));
+        const toNum = v => {
+            const n = Number(v);
+            if (!Number.isFinite(n)) throw new Error(`Non-numeric value "${v}"`);
+            return n;
+        };
+
+        const firstCells = splitRow(lines[0]);
+        const targetFirst = Number(firstCells[targetIndex]);
+        const hasHdr = hasHeader ?? Number.isNaN(targetFirst);
+        const dataLines = hasHdr ? lines.slice(1) : lines;
+
+        const X = [];
+        const Y = [];
+
+        for (const line of dataLines) {
+            const cells = splitRow(line).map(toNum);
+            if (targetIndex < 0 || targetIndex >= cells.length) {
+                throw new Error(`Target index ${targetIndex} out of range for row length ${cells.length}`);
+            }
+            Y.push(cells[targetIndex]);
+            X.push(cells.filter((_, i) => i !== targetIndex));
+        }
+        return { X, Y };
+    }
+
+    function readDecTreeParams(strictRequired) {
+        const getInput = (key) => document.getElementById(`param_${key}`);
+        const getToggle = (key) => document.getElementById(`param_${key}_enable`);
+
+        const must = (key, label) => {
+            const el = getInput(key);
+            if (!el) throw new Error(`Missing input element for ${label}`);
+            return requireInt(el.value, label);
+        };
+
+        const out = {
+            max_depth:        must('max_depth', 'max_depth'),
+            min_samples_split: must('min_samples_split', 'min_samples_split'),
+            min_samples_leaf:  must('min_samples_leaf', 'min_samples_leaf'),
+        };
+
+        // Optional fields in UI (but required by your server when strictRequired is true)
+        const mfInput = getInput('max_features');
+        const rsInput = getInput('random_seed');
+        const mfToggle = getToggle('max_features');
+        const rsToggle = getToggle('random_seed');
+
+        const readOptional = (inputEl, toggleEl, name) => {
+            if (!inputEl) {
+                if (strictRequired) throw new Error(`Missing input element for ${name}`);
+                return undefined;
+            }
+            if (strictRequired) {
+                return requireInt(inputEl.value, name);
+            }
+            // non-strict: only include if toggle is on (when present) and value provided
+            if (toggleEl && !toggleEl.checked) return undefined;
+            if (inputEl.disabled || inputEl.value === "") return undefined;
+            return requireInt(inputEl.value, name);
+        };
+
+        const mfVal = readOptional(mfInput, mfToggle, 'max_features');
+        const rsVal = readOptional(rsInput, rsToggle, 'random_seed');
+
+        if (strictRequired) {
+            if (mfVal === undefined) throw new Error('max_features is required for Decision Tree.');
+            if (rsVal === undefined) throw new Error('random_seed is required for Decision Tree.');
+        }
+
+        if (mfVal !== undefined) out.max_features = mfVal;
+        if (rsVal !== undefined) out.random_seed  = rsVal;
+
+        return out;
+    }
+
+    function buildModelJSON(model, X, Y) {
+        if (model === 'dectree') {
+            const p = readDecTreeParams(true); // require all for server
+            return {
+                X, Y,
+                max_depth: p.max_depth,
+                min_samples_split: p.min_samples_split,
+                min_samples_leaf: p.min_samples_leaf,
+                max_features: p.max_features,
+                random_seed: p.random_seed
+            };
+        }
+        // linreg / ols -> AbstractPostBody
+        return { X, Y };
+    }
+
+    function buildEnsembleJSON(ensemble, baseEstimator, X, Y) {
+        const body = {
+            X, Y,
+            base_estimator: baseEstimator,
+            base_estimator_params: {},
+            n_estimators: requireInt(nEstimators.value, 'n_estimators')
+        };
+
+        if (baseEstimator === 'dectree') {
+            // Your ensembleFactoryConstructor type-asserts all params
+            const p = readDecTreeParams(true);
+            body.base_estimator_params = {
+                max_depth: p.max_depth,
+                min_samples_split: p.min_samples_split,
+                min_samples_leaf: p.min_samples_leaf,
+                max_features: p.max_features,
+                random_seed: p.random_seed
+            };
+        }
+
+        if (ensemble === 'bagging') {
+            const seed = maybeInt(ensembleSeed.value);
+            if (seed !== null) body.random_seed = seed; // optional
+        } else if (ensemble === 'boosting') {
+            body.learning_rate = requireFloat(learningRate.value, 'learning_rate');
+        }
+        return body;
+    }
+
+    function setResponse(obj) {
+        try {
+            responsePreview.textContent = JSON.stringify(obj, null, 2);
+        } catch {
+            responsePreview.textContent = String(obj);
+        }
+    }
+    function setLoading(isLoading, label = "⏳ Running training...") {
+        responsePreview.textContent = isLoading ? label : responsePreview.textContent;
+    }
+    function clearResponse() {
+        responsePreview.textContent = "{}";
+    }
+
+    function setEnsembleState() {
+        const v = document.querySelector('input[name="ensemble"]:checked').value;
+        const disabled = (v === 'none');
+        nEstimators.disabled = disabled;
+        learningRate.disabled = (v !== 'boosting') || disabled;
+        nEstimators.classList.toggle('muted', disabled);
+        learningRate.classList.toggle('muted', learningRate.disabled);
+        refreshPreview();
+    }
+
+    ensembleRadios.forEach(r => r.addEventListener('change', setEnsembleState));
+    setEnsembleState();
+
+    function renderParams(modelKey) {
+        const schema = MODEL_SCHEMAS[modelKey];
+        currentModel = modelKey;
+
+        paramsTitle.textContent = `Parameters — ${schema.label}`;
+        modelBadge.textContent = schema.label;
+
+        if (!schema.params.length) {
+            paramsContainer.innerHTML = `<div class="hint">No user-defined hyperparameters for ${schema.label}.</div>`;
+            refreshPreview();
+            return;
+        }
+
+        const html = schema.params.map(p => {
+            const id = `param_${p.key}`;
+            const baseField = `
+          <div class="field" data-key="${p.key}">
+            <label for="${id}">${p.label}</label>
+            <input
+              type="number"
+              id="${id}"
+              ${p.min !== undefined ? `min="${p.min}"` : ""}
+              ${p.type === "int" ? `step="1"` : `step="0.01"`}
+              ${p.default !== undefined ? `value="${p.default}"` : ""}
+              ${p.optional ? `disabled` : ""}
+            />
+            ${p.optional ? `<div class="toggle"><input type="checkbox" id="${id}_enable"><label for="${id}_enable">Enable</label></div>` : ""}
+          </div>
+        `;
+            return baseField;
+        }).join('');
+
+        paramsContainer.innerHTML = html;
+
+        // Wire optional toggles
+        schema.params.filter(p => p.optional).forEach(p => {
+            const input = document.getElementById(`param_${p.key}`);
+            const toggle = document.getElementById(`param_${p.key}_enable`);
+            toggle.addEventListener('change', () => {
+                input.disabled = !toggle.checked;
+                input.classList.toggle('muted', input.disabled);
+                refreshPreview();
+            });
+        });
+
+        // Wire changes to refresh preview
+        schema.params.forEach(p => {
+            const input = document.getElementById(`param_${p.key}`);
+            if (input) input.addEventListener('input', refreshPreview);
+        });
+
+        refreshPreview();
+    }
+
+    modelSelection.addEventListener('change', (e) => {
+        if (e.target && e.target.name === 'model') {
+            renderParams(e.target.value);
+        }
+    });
+
+    // Helpers
+    function parseMaybeInt(v) {
+        if (v === "" || v === null || v === undefined) return null;
+        const n = Number(v);
+        if (Number.isNaN(n)) return null;
+        return Math.trunc(n);
+    }
+    function parseMaybeFloat(v) {
+        if (v === "" || v === null || v === undefined) return null;
+        const n = Number(v);
+        return Number.isNaN(n) ? null : n;
+    }
+
+    function buildModelPayload() {
+        if (!currentModel) return null;
+
+        // Base envelope for your API (X/Y/metrics/root/rng are backend concerns; only params here)
+        let body = { model: currentModel, params: {} };
+
+        const schema = MODEL_SCHEMAS[currentModel];
+        if (!schema.params.length) return body;
+
+        schema.params.forEach(p => {
+            const input = document.getElementById(`param_${p.key}`);
+            if (!input) return;
+
+            // Optional pointers: only include if enabled
+            if (p.optional) {
+                const enabled = document.getElementById(`param_${p.key}_enable`)?.checked;
+                if (!enabled) return;
+            }
+
+            let parsed;
+            if (p.type === "int") parsed = parseMaybeInt(input.value);
+            else parsed = parseMaybeFloat(input.value);
+
+            if (parsed !== null) body.params[p.key] = parsed;
+        });
+
+        return body;
+    }
+
+    function buildEnsemblePayload() {
+        const m = document.querySelector('input[name="ensemble"]:checked')?.value || 'none';
+        if (m === 'none') return { method: 'none' };
+
+        const payload = { method: m };
+        const n = parseMaybeInt(nEstimators.value);
+        if (n !== null) payload.n_estimators = n;
+
+        if (m === 'boosting') {
+            const lr = parseMaybeFloat(learningRate.value);
+            if (lr !== null) payload.learning_rate = lr;
+        }
+        return payload;
+    }
+
+    async function refreshPreview() {
+        const ensemble = document.querySelector('input[name="ensemble"]:checked')?.value || 'none';
+        const model = currentModel || null;
+        const route = ensemble === 'none'
+            ? (model ? `/models/${model}` : null)
+            : `/ensembles/${ensemble}`;
+
+        const dataMeta = {
+            csv_file: csvInput.files?.[0]?.name || null,
+            target_column: targetColumn.value !== "" ? Math.trunc(Number(targetColumn.value)) : null
+        };
+
+        // Build a small, valid JSON body preview (without parsing whole CSV)
+        let bodyPreview = {};
+        try {
+            if (ensemble === 'none') {
+                if (!model) throw new Error('pick model');
+                if (model === 'dectree') {
+                    const p = readDecTreeParams(false);
+                    bodyPreview = {
+                        X: [[1,2],[3,4]], // minimal valid shape preview
+                        Y: [0,1],
+                        ...p
+                    };
+                } else {
+                    bodyPreview = { X: [[1,2],[3,4]], Y: [0,1] };
+                }
+            } else {
+                const base = model || 'linreg';
+                let baseParams = {};
+                if (base === 'dectree') baseParams = readDecTreeParams(false);
+                bodyPreview = {
+                    X: [[1,2],[3,4]],
+                    Y: [0,1],
+                    base_estimator: base,
+                    base_estimator_params: baseParams,
+                    n_estimators: maybeInt(nEstimators.value) ?? 10,
+                    ...(ensemble === 'bagging' ? {} : { learning_rate: Number(learningRate.value) || 0.1 })
+                };
+            }
+        } catch (_) {
+            // ignore preview errors
+        }
+
+        jsonPreview.textContent = JSON.stringify({ route, body: bodyPreview, data: dataMeta }, null, 2);
+    }
+
+    runBtn.addEventListener('click', async () => {
+        try {
+            if (!currentModel) throw new Error("Pick a model first.");
+            if (!csvInput.files?.length) throw new Error("Upload a CSV file.");
+            if (targetColumn.value === "") throw new Error("Provide target column index.");
+
+            const file = csvInput.files[0];
+            const tIdx = requireInt(targetColumn.value, 'target_column');
+
+            // Parse CSV client-side → JSON {X,Y}
+            const { X, Y } = await csvToXY(file, tIdx, ",", true);
+
+            const ensemble = document.querySelector('input[name="ensemble"]:checked')?.value || 'none';
+            const url = ensemble === 'none' ? `/models/${currentModel}` : `/ensembles/${ensemble}`;
+
+            const body = ensemble === 'none'
+                ? buildModelJSON(currentModel, X, Y)
+                : buildEnsembleJSON(ensemble, currentModel, X, Y);
+
+            // Send JSON
+            responsePreview.textContent = "⏳ Running training...";
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            let payload;
+            const ct = res.headers.get('Content-Type') || '';
+            if (ct.includes('application/json')) {
+                payload = await res.json();
+            } else {
+                const txt = await res.text();
+                try { payload = JSON.parse(txt); } catch { payload = { raw: txt }; }
+            }
+
+            if (!res.ok) {
+                responsePreview.textContent = JSON.stringify({ error: true, status: res.status, payload }, null, 2);
+                return;
+            }
+            responsePreview.textContent = JSON.stringify(payload, null, 2);
+        } catch (e) {
+            responsePreview.textContent = JSON.stringify({ error: true, message: e.message }, null, 2);
+            console.error(e);
+        }
+    });
+
+    resetBtn.addEventListener('click', () => {
+        document.querySelectorAll('input[type="radio"][name="model"]').forEach(r => r.checked = false);
+        currentModel = null;
+        document.getElementById('params-container').innerHTML = `<div class="hint">No model selected.</div>`;
+        document.getElementById('model-badge').textContent = "Pick a model";
+        document.getElementById('params-title').textContent = "Parameters";
+        document.querySelector('input[name="ensemble"][value="none"]').checked = true;
+
+        // you likely already call setEnsembleState() in your code:
+        if (typeof setEnsembleState === 'function') setEnsembleState();
+
+        csvInput.value = "";
+        targetColumn.value = "";
+
+        refreshPreview();
+        clearResponse();
+    });
+
+    [csvInput, targetColumn, nEstimators, learningRate].forEach(el => {
+        el.addEventListener('input', refreshPreview);
+        el.addEventListener('change', refreshPreview);
+    });
+
+    // Initial preview
+    refreshPreview();
+    clearResponse();
+</script>
+</body>
+</html>

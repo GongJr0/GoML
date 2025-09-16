@@ -2,6 +2,7 @@ package Ensemble
 
 import (
 	"GoML/metrics"
+	"math"
 )
 
 type Boosted struct {
@@ -34,6 +35,7 @@ func NewDefaultBoosted(estimatorFactory func(x [][]float64, y []float64) Estimat
 func (b *Boosted) Fit() {
 	nEstimators := len(b.Estimators)
 
+	prevSSR := 0.0
 	for i := 0; i < nEstimators; i++ {
 		if i == 0 {
 			b.Estimators[i] = b.Factory(b.X, b.Y)
@@ -46,6 +48,18 @@ func (b *Boosted) Fit() {
 			resid := make([]float64, len(b.Y))
 			for j := range b.Y {
 				resid[j] = b.Y[j] - preds[j]
+			}
+
+			SSR := 0.0
+			for _, r := range resid {
+				SSR += r * r
+			}
+			if math.Abs((SSR-prevSSR)/(prevSSR+1e-6)) < 5e-4 {
+				estimatorArr := make([]Estimator, i)
+				copy(estimatorArr, b.Estimators[:i])
+				b.Estimators = estimatorArr
+				b.Metrics = metrics.Evaluate(b.Y, preds)
+				return
 			}
 
 			b.Estimators[i] = b.Factory(b.X, resid)
